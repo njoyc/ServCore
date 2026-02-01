@@ -1,11 +1,14 @@
 import os
 from datetime import timedelta
 
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
 
 class BaseConfig:
     """
     Base configuration shared across environments
     """
+
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -15,51 +18,51 @@ class BaseConfig:
     SESSION_COOKIE_SAMESITE = "Lax"
     PERMANENT_SESSION_LIFETIME = timedelta(hours=1)
 
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
 class DevelopmentConfig(BaseConfig):
     """
     Local development configuration
     """
-    DEBUG = True
 
-    # Explicit SQLite location (no ambiguity)
+    DEBUG = True
+    SQLALCHEMY_ECHO = True
+    SESSION_COOKIE_SECURE = False
+
+    # Explicit SQLite path (inside instance/)
     SQLALCHEMY_DATABASE_URI = (
         "sqlite:///" + os.path.join(BASE_DIR, "instance", "dev.db")
     )
-
-    SQLALCHEMY_ECHO = True
-    SESSION_COOKIE_SECURE = False
 
 
 class ProductionConfig(BaseConfig):
     """
     Production configuration (Render / Railway / etc.)
     """
+
     DEBUG = False
-    SESSION_COOKIE_SECURE = True
     SQLALCHEMY_ECHO = False
-
-    # Database URL handling (Render / Heroku compatibility)
-    _db_url = os.environ.get("DATABASE_URL")
-
-    if _db_url and _db_url.startswith("postgres://"):
-        _db_url = _db_url.replace("postgres://", "postgresql://", 1)
-
-    SQLALCHEMY_DATABASE_URI = _db_url
+    SESSION_COOKIE_SECURE = True
 
     @staticmethod
     def init_app(app):
-        # HARD FAIL if secrets are missing in production
+        # Hard fail if secrets are missing
         if not os.environ.get("SECRET_KEY"):
-            raise RuntimeError("SECRET_KEY environment variable must be set in production")
+            raise RuntimeError("SECRET_KEY must be set in production")
 
-        if not os.environ.get("DATABASE_URL"):
+        db_url = os.environ.get("DATABASE_URL")
+        if not db_url:
             raise RuntimeError("DATABASE_URL must be set in production")
+
+        # Fix legacy postgres:// URLs
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+        app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 
 
 # Config registry
 config = {
     "development": DevelopmentConfig,
     "production": ProductionConfig,
-    "default": DevelopmentConfig
+    "default": DevelopmentConfig,
 }
