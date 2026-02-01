@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket #{{ ticket.id }} - ServCore{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Ticket #{{ ticket.id }}</h1>
+    <a href="{{ url_for('tickets.list_tickets') }}" class="btn btn-secondary">Back to Tickets</a>
+</div>
+
+<!-- Ticket Details -->
+<div class="card">
+    <div class="card-header">
+        <h2>{{ ticket.title }}</h2>
+    </div>
+
+    <div class="d-flex gap-2 mb-3">
+        <span class="badge category-{{ ticket.category.lower() }}">{{ ticket.category }}</span>
+        <span class="badge priority-{{ ticket.priority.lower() }}">{{ ticket.priority }}</span>
+        <span class="badge status-{{ ticket.status.lower() }}">{{ ticket.status }}</span>
+    </div>
+
+    <!-- Metadata -->
+    <div class="mb-3">
+        <p><strong>Created by:</strong> {{ ticket.creator.name }} on {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        <p><strong>Assigned to:</strong> {{ ticket.assignee.name if ticket.assignee else 'Unassigned' }}</p>
+        {% if ticket.resolved_at %}
+        <p><strong>Resolved at:</strong> {{ ticket.resolved_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        {% endif %}
+        <p><strong>SLA Status:</strong>
+            <span class="sla-indicator {{ ticket.sla_status.status_class }}">
+                {{ ticket.sla_status.display_text }}
+            </span>
+        </p>
+    </div>
+
+    <!-- Description -->
+    {% if not current_user.is_agent() or ticket.assigned_to == current_user.id %}
+    <div class="mb-3">
+        <h3>Description</h3>
+        <p style="white-space: pre-wrap;">{{ ticket.description }}</p>
+    </div>
+    {% endif %}
+
+ <!-- ================= ASSIGNMENT (ADMIN ONLY) ================= -->
+{% if current_user.is_admin() and agents and ticket.status != 'CLOSED' %}
+<div class="mb-3">
+    <h3>{{ "Reassign" if ticket.assigned_to else "Assign" }} Ticket</h3>
+
+    <form method="POST"
+          action="{{ url_for('tickets.assign_ticket', id=ticket.id) }}"
+          style="max-width: 400px;">
+
+        <div class="d-flex gap-2 align-items-center">
+            <select name="agent_id" class="form-control">
+                <option value="">Unassigned</option>
+                {% for agent in agents %}
+                    <option value="{{ agent.id }}"
+                        {% if ticket.assigned_to == agent.id %}selected{% endif %}>
+                        {{ agent.name }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" class="btn btn-primary">
+                {{ "Reassign" if ticket.assigned_to else "Assign" }}
+            </button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+
+    <!-- ================= STATUS CONTROLS ================= -->
+
+    <!-- AGENT CONTROLS: Only if agent is assigned -->
+    {% if current_user.is_agent() and ticket.assigned_to == current_user.id %}
+        <div class="mb-3">
+            <h3>Update Status</h3>
+
+            {% if ticket.status == 'OPEN' %}
+                <form method="POST" action="{{ url_for('tickets.update_status', id=ticket.id) }}">
+                    <input type="hidden" name="status" value="IN_PROGRESS">
+                    <button type="submit" class="btn btn-warning">Start Progress</button>
+                </form>
+            {% elif ticket.status == 'IN_PROGRESS' %}
+                <form method="POST" action="{{ url_for('tickets.update_status', id=ticket.id) }}">
+                    <input type="hidden" name="status" value="RESOLVED">
+                    <button type="submit" class="btn btn-success">Mark as Resolved</button>
+                </form>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <!-- ADMIN OVERRIDE: Only allow REOPEN
+    {% if current_user.is_admin() and ticket.status in ['RESOLVED', 'CLOSED'] %}
+        <div class="mb-3">
+            <h3>Admin Actions</h3>
+            <form method="POST" action="{{ url_for('tickets.update_status', id=ticket.id) }}">
+                <input type="hidden" name="status" value="IN_PROGRESS">
+                <button type="submit" class="btn btn-secondary">Reopen Ticket</button>
+            </form>
+        </div>
+    {% endif %} -->
+{% if ticket.status == 'RESOLVED' and (current_user.is_admin() or ticket.created_by == current_user.id) %}
+<div class="mb-3 d-flex gap-2 align-items-center">
+    <form method="POST"
+          action="{{ url_for('tickets.close_ticket', id=ticket.id) }}"
+          onsubmit="return confirm('Close this ticket permanently?');">
+        <button class="btn btn-danger">
+            Close Ticket
+        </button>
+    </form>
+
+    <form method="POST"
+          action="{{ url_for('tickets.reopen_ticket', id=ticket.id) }}">
+        <button class="btn btn-warning">
+            Reopen Ticket
+        </button>
+    </form>
+</div>
+{% endif %}
+
+</div>
+
+
+<!-- Comments Section -->
+<div class="comments-section">
+    <h2>Comments ({{ comments|length }})</h2>
+
+    {% if comments %}
+    {% for comment in comments %}
+    <div class="comment">
+        <div class="comment-header">
+            <span class="comment-author">{{ comment.author.name }}</span>
+            <span class="comment-time">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        </div>
+        <div class="comment-text">{{ comment.text }}</div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p>No comments yet.</p>
+    {% endif %}
+
+    <!-- Add Comment Form -->
+    <div class="card mt-3">
+        <h3>Add Comment</h3>
+        <form method="POST" action="{{ url_for('tickets.add_comment', id=ticket.id) }}">
+            <div class="form-group">
+                <textarea
+                    name="text"
+                    class="form-control"
+                    rows="4"
+                    maxlength="2000"
+                    placeholder="Enter your comment..."
+                    required
+                ></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Comment</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

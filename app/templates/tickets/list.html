@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Tickets - ServCore{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{% if current_user.is_admin() %}All Tickets{% elif current_user.is_agent() %}Tickets{% else %}My Tickets{% endif %}</h1>
+    <a href="{{ url_for('tickets.create_ticket') }}" class="btn btn-primary">Create New Ticket</a>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+    <form method="GET" action="{{ url_for('tickets.list_tickets') }}">
+        <div class="filter-grid">
+            <div class="form-group mb-0">
+                <label for="status">Status</label>
+                <select id="status" name="status" class="form-control">
+                    <option value="">All</option>
+                    <option value="OPEN" {% if filters.status == 'OPEN' %}selected{% endif %}>Open</option>
+                    <option value="IN_PROGRESS" {% if filters.status == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
+                    <option value="RESOLVED" {% if filters.status == 'RESOLVED' %}selected{% endif %}>Resolved</option>
+                    <option value="CLOSED" {% if filters.status == 'CLOSED' %}selected{% endif %}>Closed</option>
+                </select>
+            </div>
+
+            <div class="form-group mb-0">
+                <label for="priority">Priority</label>
+                <select id="priority" name="priority" class="form-control">
+                    <option value="">All</option>
+                    <option value="Low" {% if filters.priority == 'Low' %}selected{% endif %}>Low</option>
+                    <option value="Medium" {% if filters.priority == 'Medium' %}selected{% endif %}>Medium</option>
+                    <option value="High" {% if filters.priority == 'High' %}selected{% endif %}>High</option>
+                    <option value="Critical" {% if filters.priority == 'Critical' %}selected{% endif %}>Critical</option>
+                </select>
+            </div>
+
+            <div class="form-group mb-0">
+                <label for="category">Category</label>
+                <select id="category" name="category" class="form-control">
+                    <option value="">All</option>
+                    <option value="IT" {% if filters.category == 'IT' %}selected{% endif %}>IT</option>
+                    <option value="HR" {% if filters.category == 'HR' %}selected{% endif %}>HR</option>
+                    <option value="Ops" {% if filters.category == 'Ops' %}selected{% endif %}>Ops</option>
+                </select>
+            </div>
+
+            {% if current_user.is_admin() %}
+            <div class="form-group mb-0">
+                <label for="assigned_to">Assigned To</label>
+                <select id="assigned_to" name="assigned_to" class="form-control">
+                    <option value="">All</option>
+                    <option value="0" {% if filters.assigned_to == '0' %}selected{% endif %}>Unassigned</option>
+                    {% for agent in agents %}
+                    <option value="{{ agent.id }}" {% if filters.assigned_to == agent.id|string %}selected{% endif %}>{{ agent.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+        </div>
+        <div class="mt-2">
+            <button type="submit" class="btn btn-primary btn-sm">Apply Filters</button>
+            <a href="{{ url_for('tickets.list_tickets') }}" class="btn btn-secondary btn-sm">Clear Filters</a>
+        </div>
+    </form>
+</div>
+
+<!-- Tickets Table -->
+<div class="card">
+    {% if tickets %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>SLA Status</th>
+                    {% if current_user.is_admin() or current_user.is_agent() %}
+                    <th>Assigned To</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                <tr style="cursor: pointer;" onclick="window.location='{{ url_for('tickets.view_ticket', id=ticket.id) }}'">
+                    <td><strong>#{{ ticket.id }}</strong></td>
+                    <td>{{ ticket.title }}</td>
+                    <td><span class="badge category-{{ ticket.category.lower() }}">{{ ticket.category }}</span></td>
+                    <td><span class="badge priority-{{ ticket.priority.lower() }}">{{ ticket.priority }}</span></td>
+                    <td><span class="badge status-{{ ticket.status.lower() }}">{{ ticket.status }}</span></td>
+                    <td>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <span class="sla-indicator {{ ticket.sla_status.status_class }}">
+                            {{ ticket.sla_status.display_text }}
+                        </span>
+                    </td>
+                    {% if current_user.is_admin() or current_user.is_agent() %}
+                    <td>{{ ticket.assignee.name if ticket.assignee else 'Unassigned' }}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center p-3">
+        <p>No tickets found.</p>
+        <a href="{{ url_for('tickets.create_ticket') }}" class="btn btn-primary">Create Your First Ticket</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

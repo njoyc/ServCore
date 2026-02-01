@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - ServCore{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Welcome back, {{ current_user.name }}</h1>
+    <a href="{{ url_for('tickets.create_ticket') }}" class="btn btn-primary">Create New Ticket</a>
+</div>
+
+<!-- Statistics Cards -->
+<div class="stats-grid">
+    <div class="stat-card stat-primary">
+        <h3>Total Tickets</h3>
+        <div class="stat-value">{{ total_tickets }}</div>
+    </div>
+
+    <div class="stat-card stat-primary">
+        <h3>Open Tickets</h3>
+        <div class="stat-value">{{ open_tickets }}</div>
+    </div>
+
+    <div class="stat-card stat-warning">
+        <h3>In Progress</h3>
+        <div class="stat-value">{{ in_progress_tickets }}</div>
+    </div>
+
+    <div class="stat-card stat-success">
+        <h3>Resolved (30 Days)</h3>
+        <div class="stat-value">{{ resolved_recent }}</div>
+    </div>
+</div>
+
+<!-- Recent Tickets -->
+<div class="card">
+    <div class="card-header">
+        <h2>Recent Tickets</h2>
+    </div>
+
+    {% if recent_tickets %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>SLA Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in recent_tickets %}
+                <tr style="cursor: pointer;" onclick="window.location='{{ url_for('tickets.view_ticket', id=ticket.id) }}'">
+                    <td><strong>#{{ ticket.id }}</strong></td>
+                    <td>{{ ticket.title }}</td>
+                    <td><span class="badge category-{{ ticket.category.lower() }}">{{ ticket.category }}</span></td>
+                    <td><span class="badge priority-{{ ticket.priority.lower() }}">{{ ticket.priority }}</span></td>
+                    <td><span class="badge status-{{ ticket.status.lower() }}">{{ ticket.status }}</span></td>
+                    <td>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                      {% set sla = calculate_sla_status(ticket) %}
+                  
+                      {% if sla %}
+                          {% if sla.overdue %}
+                              <span class="badge badge-danger">
+                                  🔴 Breached
+                              </span>
+                          {% else %}
+                              <span class="badge badge-success">
+                                  🟢 On Track –
+                                  {{ (sla.remaining.total_seconds() // 3600) | int }}h
+                                  {{ ((sla.remaining.total_seconds() % 3600) // 60) | int }}m left
+                              </span>
+                          {% endif %}
+                      {% else %}
+                          <span class="badge badge-secondary">N/A</span>
+                      {% endif %}
+                  </td>
+
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-3 text-center">
+        <a href="{{ url_for('tickets.list_tickets') }}" class="btn btn-secondary">View All Tickets</a>
+    </div>
+    {% else %}
+    <div class="text-center p-3">
+        <p>You haven't created any tickets yet.</p>
+        <a href="{{ url_for('tickets.create_ticket') }}" class="btn btn-primary">Create Your First Ticket</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

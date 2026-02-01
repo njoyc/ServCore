@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - ServCore{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Admin Dashboard</h1>
+</div>
+
+<!-- Overview Statistics -->
+<div class="stats-grid">
+    <div class="stat-card stat-primary">
+        <h3>Total Tickets</h3>
+        <div class="stat-value">{{ overview.total_tickets }}</div>
+    </div>
+
+    <div class="stat-card stat-primary">
+        <h3>Open Tickets</h3>
+        <div class="stat-value">{{ overview.open_tickets }}</div>
+    </div>
+
+    <div class="stat-card stat-success">
+        <h3>Closed Tickets</h3>
+        <div class="stat-value">{{ overview.closed_tickets }}</div>
+    </div>
+
+    <div class="stat-card stat-primary">
+        <h3>Created Today</h3>
+        <div class="stat-value">{{ overview.tickets_today }}</div>
+    </div>
+
+    <div class="stat-card stat-success">
+        <h3>Resolved Today</h3>
+        <div class="stat-value">{{ overview.resolved_today }}</div>
+    </div>
+
+    <div class="stat-card stat-warning">
+        <h3>Avg Resolution Time</h3>
+        <div class="stat-value">{{ overview.avg_resolution_time }}h</div>
+    </div>
+
+    <div class="stat-card {% if overview.sla_compliance_rate >= 80 %}stat-success{% elif overview.sla_compliance_rate >= 60 %}stat-warning{% else %}stat-danger{% endif %}">
+        <h3>SLA Compliance</h3>
+        <div class="stat-value">{{ overview.sla_compliance_rate }}%</div>
+    </div>
+
+</div>
+
+<!-- Charts -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <div class="card">
+        <h3>Tickets by Status</h3>
+        <canvas id="statusChart"></canvas>
+    </div>
+
+    <div class="card">
+        <h3>Tickets by Priority</h3>
+        <canvas id="priorityChart"></canvas>
+    </div>
+
+    <div class="card">
+        <h3>Tickets by Category</h3>
+        <canvas id="categoryChart"></canvas>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <h3>Resolution Time Trend (Last 30 Days)</h3>
+    <canvas id="trendChart"></canvas>
+</div>
+
+
+<!-- Agent Performance -->
+<div class="card">
+    <div class="card-header">
+        <h2>Agent Performance</h2>
+    </div>
+
+    {% if agent_performance %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Assigned Tickets</th>
+                    <th>Resolved (30 Days)</th>
+                    <th>Avg Resolution Time</th>
+                    <th>SLA Compliance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for agent in agent_performance %}
+                <tr>
+                    <td><strong>{{ agent.name }}</strong></td>
+                    <td>{{ agent.assigned_count }}</td>
+                    <td>{{ agent.resolved_count }}</td>
+                    <td>{{ agent.avg_resolution_time }}h</td>
+                    <td>
+                        <span class="badge {% if agent.sla_compliance >= 80 %}priority-low{% elif agent.sla_compliance >= 60 %}priority-medium{% else %}priority-critical{% endif %}">
+                            {{ agent.sla_compliance }}%
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center p-3">No agent performance data available.</p>
+    {% endif %}
+</div>
+
+<!-- Recent Activity -->
+<div class="card">
+    <div class="card-header">
+        <h2>Recent Activity</h2>
+    </div>
+
+    {% if recent_activity %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Created By</th>
+                    <th>Created At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for activity in recent_activity %}
+                <tr style="cursor: pointer;" onclick="window.location='{{ url_for('tickets.view_ticket', id=activity.id) }}'">
+                    <td><strong>#{{ activity.id }}</strong></td>
+                    <td>{{ activity.title }}</td>
+                    <td><span class="badge status-{{ activity.status.lower() }}">{{ activity.status }}</span></td>
+                    <td>{{ activity.created_by }}</td>
+                    <td>{{ activity.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Parse data from backend
+const statusData = {{ status_data | safe }};
+const priorityData = {{ priority_data | safe }};
+const categoryData = {{ category_data | safe }};
+const trendData = {{ trend_data | safe }};
+
+// ===== FIXED STATUS COLOR MAPPING =====
+const STATUS_ORDER = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+
+const STATUS_COLORS = {
+    OPEN: '#f59e0b',         // orange
+    IN_PROGRESS: '#3b82f6',  // blue
+    RESOLVED: '#10b981',     // green
+    CLOSED: '#6b7280'        // gray
+};
+
+// Build aligned arrays (order + color fixed)
+const statusCounts = {};
+statusData.forEach(s => {
+    statusCounts[s.status] = s.count;
+});
+
+const statusLabels = STATUS_ORDER;
+const statusValues = STATUS_ORDER.map(s => statusCounts[s] || 0);
+const statusColors = STATUS_ORDER.map(s => STATUS_COLORS[s]);
+
+// Status Chart (Pie)
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+new Chart(statusCtx, {
+    type: 'pie',
+    data: {
+        labels: statusLabels,
+        datasets: [{
+            data: statusValues,
+            backgroundColor: statusColors
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: { position: 'top' }
+        }
+    }
+});
+
+// Priority Chart (Bar)
+const priorityCtx = document.getElementById('priorityChart').getContext('2d');
+new Chart(priorityCtx, {
+    type: 'bar',
+    data: {
+        labels: priorityData.map(d => d.priority),
+        datasets: [{
+            label: 'Tickets',
+            data: priorityData.map(d => d.count),
+            backgroundColor: ['#6b7280', '#3b82f6', '#f59e0b', '#ef4444']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+
+// Category Chart (Doughnut)
+const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+new Chart(categoryCtx, {
+    type: 'doughnut',
+    data: {
+        labels: categoryData.map(d => d.category),
+        datasets: [{
+            data: categoryData.map(d => d.count),
+            backgroundColor: ['#3730a3', '#831843', '#065f46']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true
+    }
+});
+
+// Trend Chart (Line)
+const trendCtx = document.getElementById('trendChart').getContext('2d');
+new Chart(trendCtx, {
+    type: 'line',
+    data: {
+        labels: trendData.map(d => d.date),
+        datasets: [{
+            label: 'Avg Resolution Time (hours)',
+            data: trendData.map(d => d.avg_hours),
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

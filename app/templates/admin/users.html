@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Users - ServCore{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>User Management</h1>
+    <a href="{{ url_for('admin.create_user') }}" class="btn btn-primary">Add New User</a>
+</div>
+
+<div class="card">
+    {% if users %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td><strong>{{ user.name }}</strong></td>
+                    <td>{{ user.email }}</td>
+                    <td><span class="badge priority-{{ 'critical' if user.role == 'admin' else 'medium' if user.role == 'agent' else 'low' }}">{{ user.role }}</span></td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <a href="{{ url_for('admin.edit_user', id=user.id) }}" class="btn btn-sm btn-secondary">Edit</a>
+                        {% if user.id != current_user.id %}
+                        <form method="POST" action="{{ url_for('admin.delete_user', id=user.id) }}" style="display: inline;">
+                            <button type="submit" class="btn btn-sm btn-danger" data-confirm-delete="Are you sure you want to delete {{ user.name }}?">Delete</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center p-3">
+        <p>No users found.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

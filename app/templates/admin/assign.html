@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Assign Tickets - ServCore{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Ticket Assignment Interface</h1>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem;">
+    <!-- Unassigned Tickets -->
+    <div class="card">
+        <div class="card-header">
+            <h2>Unassigned Tickets ({{ unassigned_tickets|length }})</h2>
+        </div>
+
+        {% if unassigned_tickets %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Priority</th>
+                        <th>Category</th>
+                        <th>Created</th>
+                        <th>Assign To</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in unassigned_tickets %}
+                    <tr>
+                        <td><strong>#{{ ticket.id }}</strong></td>
+                        <td>
+                            <a href="{{ url_for('tickets.view_ticket', id=ticket.id) }}">{{ ticket.title }}</a>
+                        </td>
+                        <td><span class="badge priority-{{ ticket.priority.lower() }}">{{ ticket.priority }}</span></td>
+                        <td><span class="badge category-{{ ticket.category.lower() }}">{{ ticket.category }}</span></td>
+                        <td>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('admin.assign_ticket_action', ticket_id=ticket.id) }}">
+                                <div class="d-flex gap-1">
+                                    <select name="agent_id" class="form-control" required style="font-size: 0.875rem;">
+                                        <option value="">Select agent</option>
+                                        {% for agent in agents %}
+                                        <option value="{{ agent.id }}">{{ agent.name }} ({{ agent.workload }})</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-primary">Assign</button>
+                                </div>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center p-3">
+            <p>No unassigned tickets.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Agent Workload -->
+    <div class="card">
+        <div class="card-header">
+            <h2>Agent Workload</h2>
+        </div>
+
+        <div style="padding: 0;">
+            {% for agent in agents %}
+            <div style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <strong>{{ agent.name }}</strong>
+                    <span class="badge {% if agent.workload == 0 %}priority-low{% elif agent.workload < 5 %}priority-medium{% else %}priority-high{% endif %}">
+                        {{ agent.workload }}
+                    </span>
+                </div>
+                <div style="background-color: #e5e7eb; border-radius: 4px; height: 8px;">
+                    <div style="background-color: {% if agent.workload < 5 %}#10b981{% elif agent.workload < 10 %}#f59e0b{% else %}#ef4444{% endif %}; border-radius: 4px; height: 8px; width: {{ (agent.workload / 15 * 100) if agent.workload < 15 else 100 }}%;"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Assignment Requests - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Assignment Requests</h1>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>Pending Requests</h2>
+    </div>
+
+    <p class="text-muted">
+        Requests are shown oldest-first. Approving assigns the ticket immediately.
+    </p>
+
+    {% if requests %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ticket</th>
+                    <th>Agent</th>
+                    <th>Ticket Age</th>
+                    <th>Requested At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requests %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('tickets.view_ticket', id=req.ticket.id) }}">
+                            #{{ req.ticket.id }} – {{ req.ticket.title }}
+                        </a>
+                    </td>
+
+                    <td>{{ req.agent.name }}</td>
+
+                    <td>
+                        {{ ((now - req.ticket.created_at).total_seconds() // 3600)|int }} hrs
+                    </td>
+
+                    <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+
+                    <td>
+                        <form method="POST"
+                              action="{{ url_for('admin.approve_assignment_request', req_id=req.id) }}"
+                              style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-success">
+                                Approve
+                            </button>
+                        </form>
+
+                        <form method="POST"
+                              action="{{ url_for('admin.reject_assignment_request', req_id=req.id) }}"
+                              style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-danger">
+                                Reject
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center p-3">
+        <p>No pending assignment requests.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
