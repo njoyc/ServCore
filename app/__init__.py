@@ -52,7 +52,7 @@ def create_app(config_name=None):
 
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
 
     # ===============================
     # Register blueprints
@@ -76,7 +76,14 @@ def create_app(config_name=None):
     # ===============================
     # DB init (DEV ONLY)
     # ===============================
+    with app.app_context():
+        db.create_all()
+
+    # seed demo users only in development
     if config_name != "production":
+        with app.app_context():
+            init_db()
+    elif config_name == "development":
         with app.app_context():
             db.create_all()
             init_db()
