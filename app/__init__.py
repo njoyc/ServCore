@@ -79,6 +79,20 @@ def create_app(config_name=None):
     with app.app_context():
         db.create_all()
 
+        if config_name == "production":
+            from app.models import User
+            if not User.query.first():
+                admin = User(
+                    name="Admin",
+                    email="admin@example.com",
+                    role="admin"
+                )
+                admin.set_password("admin123")
+
+                db.session.add(admin)
+                db.session.commit()
+
+                print("✔ Production admin created")
     # seed demo users only in development
     if config_name != "production":
         with app.app_context():
